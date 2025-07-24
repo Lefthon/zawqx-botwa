@@ -1,23 +1,31 @@
-import baileys from '@whiskeysockets/baileys'
+import { 
+  makeWASocket, 
+  useMultiFileAuthState, 
+  fetchLatestBaileysVersion, 
+  DisconnectReason, 
+  Browsers,
+  MessageUpsertType,
+  ConnectionState,
+  WAMessage,
+  AnyMessageContent
+} from '@whiskeysockets/baileys'
 import pino from 'pino'
 import qrcode from 'qrcode-terminal'
-import { loadPlugins, executeCommand } from './handlers.ts'
-import { color } from './nology/colors.ts'
+import { loadPlugins, executeCommand } from './handlers'
+import { color } from './zawqx/colors'
 
-const {
-  makeWASocket,
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion,
-  DisconnectReason,
-  Browsers
-} = baileys
+const logger = pino({ level: 'silent' })
 
-async function startNology() {
-  const { state, saveCreds } = await useMultiFileAuthState('./nology/sesibot')
-  const { version } = await fetchLatestBaileysVersion()
+async function startZawqx() {
+  const { state, saveCreds } = await useMultiFileAuthState('./zawqx/sesibot')
+  const { version, isLatest } = await fetchLatestBaileysVersion()
 
-  const nology = makeWASocket({
-    logger: pino({ level: 'silent' }),
+  if (!isLatest) {
+    logger.warn(`Using BAILAYS version ${version}, newer version available`)
+  }
+
+  const zawqx = makeWASocket({
+    logger,
     printQRInTerminal: true,
     auth: state,
     version,
@@ -26,57 +34,97 @@ async function startNology() {
     retryRequestDelayMs: 250,
     markOnlineOnConnect: false,
     emitOwnEvents: true,
+    generateHighQualityLinkPreview: true,
+    getMessage: async (key) => {
+      // Implement message fetching logic if needed
+      return undefined
+    },
     patchMessageBeforeSending: (msg) => {
-      if (msg.contextInfo) delete msg.contextInfo.mentionedJid
+      if (msg?.contextInfo?.mentionedJid) {
+        delete msg.contextInfo.mentionedJid
+      }
       return msg
     }
   })
 
   await loadPlugins()
 
-  nology.ev.on('creds.update', saveCreds)
+  zawqx.ev.on('creds.update', saveCreds)
 
-  nology.ev.on('connection.update', async ({ qr, connection, lastDisconnect }) => {
+  zawqx.ev.on('connection.update', async (update) => {
+    const { qr, connection, lastDisconnect } = update
+
     if (qr) {
       qrcode.generate(qr, { small: true })
     }
 
     if (connection === 'close') {
-      const code = (lastDisconnect?.error)?.output?.statusCode
-      const shouldReconnect = code !== DisconnectReason.loggedOut
+      const shouldReconnect = (lastDisconnect?.error as any)?.output?.statusCode 
+        !== DisconnectReason.loggedOut
 
-      if (shouldReconnect) startNology()
+      if (shouldReconnect) {
+        setTimeout(startZawqx, 5000) // Add delay before reconnecting
+      }
     }
 
     if (connection === 'open') {
+      console.log(color('Bot successfully connected!', 'green'))
       try {
-        await nology.newsletterFollow('120363367787013309@newsletter')
-      } catch {}
+        await zawqx.updateProfileStatus('Active - zawqx')
+        await zawqx.newsletterFollow('120363367787013309@newsletter')
+      } catch (error) {
+        logger.error('Failed to update profile or follow newsletter:', error)
+      }
     }
   })
 
-  nology.ev.on('messages.upsert', async ({ messages, type }) => {
+  zawqx.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return
 
     const msg = messages[0]
-    if (!msg || !msg.message || msg.key.fromMe) return
+    if (!msg?.message || msg.key.fromMe) return
 
-    const text =
-      msg.message.conversation ||
-      msg.message.extendedTextMessage?.text ||
-      msg.message.imageMessage?.caption ||
-      ''
-
+    const text = getMessageText(msg)
     if (!text) return
 
     const sender = msg.key.remoteJid || 'unknown'
 
     try {
-      await executeCommand(text, msg, async (res: string) => {
-        await nology.sendMessage(sender, { text: res })
+      await executeCommand(text, msg, async (response: string | AnyMessageContent) => {
+        await zawqx.sendMessage(sender, typeof response === 'string' ? { text: response } : response)
       })
-    } catch {}
+    } catch (error) {
+      logger.error('Error processing command:', error)
+      await zawqx.sendMessage(sender, { 
+        text: 'An error occurred while processing your request.'
+      })
+    }
+  })
+
+  // Add error handling
+  zawqx.ev.on('connection.error', (error) => {
+    logger.error('Connection error:', error)
+  })
+
+  process.on('SIGINT', () => {
+    logger.info('Shutting down gracefully...')
+    zawqx.end(undefined)
+    process.exit(0)
   })
 }
 
-startNology()
+function getMessageText(msg: WAMessage): string | undefined {
+  const message = msg.message
+  return (
+    message?.conversation ||
+    message?.extendedTextMessage?.text ||
+    message?.imageMessage?.caption ||
+    message?.videoMessage?.caption ||
+    message?.documentMessage?.caption
+  )
+}
+
+startZawqx().catch(error => {
+  console.error('Failed to start bot:', error)
+  process.exit(1)
+})
