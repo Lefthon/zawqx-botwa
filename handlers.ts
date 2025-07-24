@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import config from "./nology/config.ts";
+import config from "./zawqx/config.ts";
 import chalk from "chalk";
 import { pathToFileURL } from "url";
 
