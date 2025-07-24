@@ -1,7 +1,7 @@
 export default {
-  ownerNumber: ["6282132710183"],
-  ownerName: "Fauzialifatah",
-  botName: "NologyBot",
+  ownerNumber: ["6282298334109"],
+  ownerName: "Lefthon",
+  botName: "zawqx",
   language: "id",
 
   mess: {
