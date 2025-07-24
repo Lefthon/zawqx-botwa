@@ -1,20 +1,38 @@
 {
-  "name": "Lefthon whatsapp-bot",
+  "name": "zawqx-whatsapp-bot",
   "version": "1.0.0",
-  "main": "bot.ts",
+  "description": "Advanced WhatsApp Bot by Lefthon",
+  "main": "dist/index.ts",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
-    "@whiskeysockets/baileys": "github:skyzopedia/Bail",
+    "@whiskeysockets/baileys": "github:whiskeysockets/baileys",
     "chalk": "^5.4.1",
     "pino": "^9.7.0",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "dotenv": "^16.4.1"
   },
   "devDependencies": {
-    "@types/node": "^24.0.10",
+    "@types/node": "^20.11.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.3.3",
+    "rimraf": "^5.0.5"
   },
   "scripts": {
-    "start": "ts-node index.ts"
-  }
+    "start": "node dist/index.ts",
+    "dev": "ts-node src/index.ts",
+    "build": "rimraf dist && tsc",
+    "prestart": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "zawqx",
+    "baileys"
+  ],
+  "author": "Lefthon",
+  "license": "MIT"
 }
